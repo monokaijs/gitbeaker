@@ -4,11 +4,10 @@ import type {
   ResponseBodyTypes,
 } from '@gitbeaker/requester-utils';
 import {
+  createRequesterFn,
   GitbeakerRequestError,
   GitbeakerRetryError,
   GitbeakerTimeoutError,
-  createRequesterFn,
-  getMatchingRateLimiter,
 } from '@gitbeaker/requester-utils';
 
 export async function processBody(response: Response): Promise<ResponseBodyTypes> {
@@ -81,8 +80,7 @@ function getConditionalMode(endpoint: string) {
 export async function defaultRequestHandler(endpoint: string, options?: RequestOptions) {
   const retryCodes = [429, 502];
   const maxRetries = 10;
-  const { rateLimiters, agent, asStream, prefixUrl, searchParams, method, ...opts } = options || {};
-  const rateLimit = getMatchingRateLimiter(endpoint, rateLimiters, method);
+  const { agent, asStream, prefixUrl, searchParams, method, ...opts } = options || {};
   let lastStatus: number | undefined;
   let baseUrl: string | undefined;
 
@@ -103,8 +101,6 @@ export async function defaultRequestHandler(endpoint: string, options?: RequestO
     // Append agent information if given
     if (agent) fetchArgs.push({ dispatcher: agent } as RequestInit);
 
-    await rateLimit();
-
     const response = await fetch(...fetchArgs).catch((e) => {
       if (e.name === 'TimeoutError' || e.name === 'AbortError') {
         throw new GitbeakerTimeoutError('Query timeout was reached');
@@ -121,7 +117,6 @@ export async function defaultRequestHandler(endpoint: string, options?: RequestO
     await delay(2 ** i * 0.25);
 
     // eslint-disable-next-line
-    continue;
   }
   /* eslint-enable */
 

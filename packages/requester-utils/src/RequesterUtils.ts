@@ -1,14 +1,9 @@
 import { stringify } from 'qs';
 import { decamelizeKeys } from 'xcase';
-import { RateLimiterMemory, RateLimiterQueue } from 'rate-limiter-flexible';
-import Picomatch from 'picomatch-browser';
 import type { Agent } from 'http';
-
-const { isMatch: isGlobMatch } = Picomatch;
 
 // Types
 export type RateLimiterFn = () => Promise<number>;
-export type RateLimiters = Record<string, RateLimiterFn | { method: string; limit: RateLimiterFn }>;
 export type RateLimitOptions = Record<string, number | { method: string; limit: number }>;
 
 export type ResponseBodyTypes =
@@ -59,7 +54,6 @@ export type RequestOptions = {
   body?: string | FormData;
   asStream?: boolean;
   signal?: AbortSignal;
-  rateLimiters?: Record<string, RateLimiterFn>;
   agent?: Agent;
 };
 
@@ -90,15 +84,6 @@ export type RequestHandlerFn<T extends ResponseBodyTypes = ResponseBodyTypes> = 
   endpoint: string,
   options?: Record<string, unknown>,
 ) => Promise<FormattedResponse<T>>;
-
-// Utility methods
-export function generateRateLimiterFn(limit: number, interval: number) {
-  const limiter = new RateLimiterQueue(
-    new RateLimiterMemory({ points: limit, duration: interval }),
-  );
-
-  return () => limiter.removeTokens(1);
-}
 
 export function formatQuery(params: Record<string, unknown> = {}): string {
   const decamelized = decamelizeKeys(params);
@@ -161,25 +146,6 @@ export async function defaultOptionsHandler(
   return Promise.resolve(defaultOptions);
 }
 
-export function createRateLimiters(
-  rateLimitOptions: RateLimitOptions = {},
-  rateLimitDuration: number = 60,
-) {
-  const rateLimiters: RateLimiters = {};
-
-  Object.entries(rateLimitOptions).forEach(([key, config]) => {
-    if (typeof config === 'number')
-      rateLimiters[key] = generateRateLimiterFn(config, rateLimitDuration);
-    else
-      rateLimiters[key] = {
-        method: config.method.toUpperCase(),
-        limit: generateRateLimiterFn(config.limit, rateLimitDuration),
-      };
-  });
-
-  return rateLimiters;
-}
-
 export function createRequesterFn(
   optionsHandler: OptionsHandlerFn,
   requestHandler: RequestHandlerFn,
@@ -188,10 +154,6 @@ export function createRequesterFn(
 
   return (serviceOptions) => {
     const requester: RequesterType = {} as RequesterType;
-    const rateLimiters = createRateLimiters(
-      serviceOptions.rateLimits,
-      serviceOptions.rateLimitDuration,
-    );
 
     methods.forEach((m) => {
       requester[m] = async (endpoint: string, options: Record<string, unknown>) => {
@@ -201,7 +163,7 @@ export function createRequesterFn(
         });
         const requestOptions = await optionsHandler(serviceOptions, defaultRequestOptions);
 
-        return requestHandler(endpoint, { ...requestOptions, rateLimiters });
+        return requestHandler(endpoint, { ...requestOptions });
       };
     });
 
@@ -233,29 +195,14 @@ export function presetResourceArguments<T extends Record<string, any>>(
 
   Object.entries(resources).forEach(([key, Constructor]) => {
     if (typeof Constructor === 'function') {
-      result[key as keyof T] = createPresetConstructor(Constructor as new (...args: any[]) => any, customConfig) as any;
+      result[key as keyof T] = createPresetConstructor(
+        Constructor as new (...args: any[]) => any,
+        customConfig,
+      ) as any;
     } else {
       result[key as keyof T] = Constructor as any;
     }
   });
 
   return result;
-}
-
-export function getMatchingRateLimiter(
-  endpoint: string,
-  rateLimiters: RateLimiters = {},
-  method: string = 'GET',
-): RateLimiterFn {
-  const sortedEndpoints = Object.keys(rateLimiters).sort().reverse();
-  const match = sortedEndpoints.find((ep) => isGlobMatch(endpoint, ep));
-  const rateLimitConfig = match && rateLimiters[match];
-
-  if (typeof rateLimitConfig === 'function') return rateLimitConfig;
-
-  if (rateLimitConfig && rateLimitConfig?.method?.toUpperCase() === method.toUpperCase()) {
-    return rateLimitConfig.limit;
-  }
-
-  return generateRateLimiterFn(3000, 60);
 }

@@ -879,7 +879,6 @@ __metadata:
     "@types/qs": "npm:^6.14.0"
     picomatch-browser: "npm:^2.2.6"
     qs: "npm:^6.14.0"
-    rate-limiter-flexible: "npm:^8.0.1"
     tsup: "npm:^8.5.0"
     typescript: "npm:^5.9.2"
     xcase: "npm:^2.0.1"
@@ -10036,13 +10035,6 @@ __metadata:
   version: 4.0.1
   resolution: "quick-lru@npm:4.0.1"
   checksum: 10c0/f9b1596fa7595a35c2f9d913ac312fede13d37dc8a747a51557ab36e11ce113bbe88ef4c0154968845559a7709cb6a7e7cbe75f7972182451cd45e7f057a334d
-  languageName: node
-  linkType: hard
-
-"rate-limiter-flexible@npm:^8.0.1":
-  version: 8.0.1
-  resolution: "rate-limiter-flexible@npm:8.0.1"
-  checksum: 10c0/c904dcd83cc2fdcf536c938f1c8bac026749b8e2c2b58cf4dc33e4e2ce18c8488c689056fbc30232b465bd0f01e28f76a1f9a9c4ad319c6ee704e79166ef0d3d
   languageName: node
   linkType: hard
 
